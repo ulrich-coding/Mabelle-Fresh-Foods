@@ -6,12 +6,12 @@ export const metadata: Metadata = {
     default: "Mabelle Fresh Foods",
     template: "%s | Mabelle Fresh Foods",
   },
-  description: "Fresh food, thoughtfully sourced.",
+  description: "Produits frais sur commande : viandes, abats et œufs.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="fr" className="h-full antialiased">
       <body className="min-h-full bg-background font-sans text-foreground">
         {children}
       </body>

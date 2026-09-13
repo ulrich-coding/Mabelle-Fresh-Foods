@@ -11,4 +11,16 @@ function getRequiredSupabaseEnvironment() {
   return { url, publishableKey };
 }
 
-export { getRequiredSupabaseEnvironment };
+function getRequiredSupabaseDatabaseUrl() {
+  const databaseUrl = process.env.SUPABASE_DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error(
+      "Missing Supabase database configuration. Set SUPABASE_DATABASE_URL.",
+    );
+  }
+
+  return databaseUrl;
+}
+
+export { getRequiredSupabaseDatabaseUrl, getRequiredSupabaseEnvironment };
