@@ -81,13 +81,12 @@ export function CartPageContent() {
           <span>Total</span>
           <span>{formatCurrencyCents(totalCents, "USD")}</span>
         </div>
-        <button
-          className="mt-6 w-full rounded-md bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-stone-400"
-          disabled
-          type="button"
+        <Link
+          className="mt-6 block w-full rounded-md bg-emerald-800 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-emerald-900"
+          href="/checkout"
         >
-          Continuer la commande (bientôt disponible)
-        </button>
+          Continuer la commande
+        </Link>
       </section>
     </main>
   );

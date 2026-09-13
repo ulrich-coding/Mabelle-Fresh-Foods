@@ -8,6 +8,10 @@ function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
 function asPhoto(value: unknown): CartPhoto | null {
   if (value === null) return null;
   if (!value || typeof value !== "object") return null;
@@ -39,7 +43,7 @@ function asCartItem(value: unknown): CartItem | null {
   if (
     typeof item.productId !== "string" ||
     typeof item.name !== "string" ||
-    !isPositiveSafeInteger(item.unitPriceCents) ||
+    !isNonNegativeSafeInteger(item.unitPriceCents) ||
     typeof item.currencyCode !== "string" ||
     typeof item.unit !== "string" ||
     !productUnits.has(item.unit as CartUnit) ||
