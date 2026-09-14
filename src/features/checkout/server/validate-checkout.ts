@@ -7,19 +7,17 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   calculateValidatedLineTotalCents,
   getValidatedProductAmounts,
+  parseCheckoutCartItems,
   validateCheckoutForm,
   validateQuantityForProduct,
   type CheckoutProductForValidation,
 } from "../lib/validation";
 import type {
-  CheckoutCartItemInput,
   CheckoutValidationFailure,
   CheckoutValidationRequest,
   CheckoutValidationResult,
   ValidatedCheckoutItem,
 } from "../types/checkout";
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type ProductRow = {
   id: string;
@@ -35,35 +33,6 @@ type ProductRow = {
 
 function failure(message: string, options?: Omit<CheckoutValidationFailure, "success" | "message">): CheckoutValidationFailure {
   return { success: false, message, ...options };
-}
-
-function parseCartItems(value: unknown): CheckoutCartItemInput[] | CheckoutValidationFailure {
-  if (!Array.isArray(value) || value.length === 0) {
-    return failure("Votre panier est vide.", { cartErrors: ["Ajoutez un produit avant de continuer."] });
-  }
-
-  if (value.length > 50) {
-    return failure("Votre panier contient trop d’articles pour être vérifié.");
-  }
-
-  const productIds = new Set<string>();
-  const items: CheckoutCartItemInput[] = [];
-
-  for (const item of value) {
-    if (!item || typeof item !== "object") {
-      return failure("Le contenu du panier est invalide.");
-    }
-
-    const candidate = item as Partial<CheckoutCartItemInput>;
-    if (typeof candidate.productId !== "string" || !uuidPattern.test(candidate.productId) || productIds.has(candidate.productId)) {
-      return failure("Le contenu du panier est invalide.");
-    }
-
-    productIds.add(candidate.productId);
-    items.push({ productId: candidate.productId, quantityMilli: candidate.quantityMilli as number });
-  }
-
-  return items;
 }
 
 function asProduct(row: ProductRow): CheckoutProductForValidation {
@@ -86,7 +55,7 @@ export async function validateCheckoutAction(
     const form = validateCheckoutForm(request?.form);
     if ("success" in form) return form;
 
-    const cartItems = parseCartItems(request?.cartItems);
+    const cartItems = parseCheckoutCartItems(request?.cartItems);
     if ("success" in cartItems) return cartItems;
 
     const productIds = cartItems.map((item) => item.productId);

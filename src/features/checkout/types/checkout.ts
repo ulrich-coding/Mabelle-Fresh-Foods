@@ -59,3 +59,17 @@ export type CheckoutValidationSuccess = {
 };
 
 export type CheckoutValidationResult = CheckoutValidationFailure | CheckoutValidationSuccess;
+
+export type CheckoutOrderSuccess = {
+  success: true;
+  message: string;
+  orderNumber: string;
+  fulfillmentMethod: FulfillmentMethod;
+  items: ValidatedCheckoutItem[];
+  subtotalCents: number;
+  totalCents: number;
+  currencyCode: "USD";
+  whatsappUrl: string;
+};
+
+export type CheckoutOrderResult = CheckoutValidationFailure | CheckoutOrderSuccess;

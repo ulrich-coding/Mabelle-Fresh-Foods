@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { useCart } from "@/features/cart/cart-provider";
 import { formatCurrencyCents, formatQuantityMilli } from "@/features/cart/lib/calculations";
 import type { CartItem } from "@/features/cart/types/cart";
 
+import { CheckoutOrderConfirmation } from "./checkout-order-confirmation";
+import { createGuestOrderAction } from "../server/create-order";
 import { validateCheckoutAction } from "../server/validate-checkout";
 import type {
   CheckoutFormInput,
+  CheckoutOrderResult,
   CheckoutValidationResult,
   CheckoutValidationSuccess,
   FulfillmentMethod,
@@ -79,11 +82,16 @@ export function CheckoutPageContent() {
   const [form, setForm] = useState<CheckoutFormState>(initialForm);
   const [result, setResult] = useState<CheckoutValidationResult>();
   const [validation, setValidation] = useState<ValidationState>();
-  const [isPending, startTransition] = useTransition();
+  const [orderResult, setOrderResult] = useState<CheckoutOrderResult>();
+  const [isValidationPending, startValidationTransition] = useTransition();
+  const [isOrderPending, startOrderTransition] = useTransition();
+  const orderSubmissionStarted = useRef(false);
 
   function clearValidation() {
     setResult(undefined);
     setValidation(undefined);
+    setOrderResult(undefined);
+    orderSubmissionStarted.current = false;
   }
 
   function updateForm(patch: Partial<CheckoutFormState>) {
@@ -96,17 +104,21 @@ export function CheckoutPageContent() {
     setForm((current) => ({ ...current, address: { ...current.address, ...patch } }));
   }
 
+  function getCheckoutRequest() {
+    return {
+      cartItems: items.map(({ productId, quantityMilli }) => ({ productId, quantityMilli })),
+      form: form.fulfillmentMethod === "delivery"
+        ? form
+        : { fullName: form.fullName, phone: form.phone, fulfillmentMethod: form.fulfillmentMethod },
+    };
+  }
+
   function submitCheckout(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     clearValidation();
 
-    startTransition(async () => {
-      const response = await validateCheckoutAction({
-        cartItems: items.map(({ productId, quantityMilli }) => ({ productId, quantityMilli })),
-        form: form.fulfillmentMethod === "delivery"
-          ? form
-          : { fullName: form.fullName, phone: form.phone, fulfillmentMethod: form.fulfillmentMethod },
-      });
+    startValidationTransition(async () => {
+      const response = await validateCheckoutAction(getCheckoutRequest());
 
       setResult(response);
       if (!response.success) return;
@@ -116,6 +128,24 @@ export function CheckoutPageContent() {
         return !cartItem || hasCatalogChanged(cartItem, validatedItem);
       });
       setValidation({ result: response, hasCatalogChanges: catalogChanged });
+    });
+  }
+
+  function submitOrder() {
+    if (!validation || orderSubmissionStarted.current || isOrderPending) return;
+
+    orderSubmissionStarted.current = true;
+    setOrderResult(undefined);
+    startOrderTransition(async () => {
+      const response = await createGuestOrderAction(getCheckoutRequest());
+      setOrderResult(response);
+
+      if (response.success) {
+        replaceItems([]);
+        return;
+      }
+
+      orderSubmissionStarted.current = false;
     });
   }
 
@@ -146,6 +176,10 @@ export function CheckoutPageContent() {
     return <main className="mx-auto w-full max-w-6xl px-6 py-12 text-stone-700">Chargement du panier…</main>;
   }
 
+  if (orderResult?.success) {
+    return <CheckoutOrderConfirmation order={orderResult} />;
+  }
+
   if (items.length === 0) {
     return (
       <main className="mx-auto w-full max-w-4xl px-6 py-12">
@@ -167,7 +201,7 @@ export function CheckoutPageContent() {
       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">Commande</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">Vos informations</h1>
       <p className="mt-4 max-w-3xl leading-7 text-stone-700">
-        Nous vérifierons le catalogue et les quantités avant la suite de votre demande. Aucun paiement ni aucune commande ne sont créés à cette étape.
+        Nous vérifierons le catalogue et les quantités avant l’enregistrement de votre demande. Aucun paiement n’est demandé en ligne.
       </p>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
@@ -312,12 +346,23 @@ export function CheckoutPageContent() {
             </div>
           ) : null}
 
+          {orderResult && !orderResult.success ? (
+            <div aria-live="polite" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <p className="font-medium">{orderResult.message}</p>
+              {orderResult.cartErrors?.length ? (
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {orderResult.cartErrors.map((error) => <li key={error}>{error}</li>)}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
           <button
             className="w-full rounded-md bg-emerald-800 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:bg-stone-400"
-            disabled={isPending}
+            disabled={isValidationPending || isOrderPending}
             type="submit"
           >
-            {isPending ? "Vérification du panier…" : "Continuer la commande"}
+            {isValidationPending ? "Vérification du panier…" : "Continuer la commande"}
           </button>
         </form>
 
@@ -355,8 +400,16 @@ export function CheckoutPageContent() {
 
           {validation && !validation.hasCatalogChanges ? (
             <section aria-live="polite" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900">
-              <p className="font-semibold">Votre demande est prête pour l’étape suivante.</p>
-              <p className="mt-2">Aucune commande n’a été créée à ce stade. Son enregistrement sera effectué lors de la prochaine étape.</p>
+              <p className="font-semibold">Votre demande est prête à être enregistrée.</p>
+              <p className="mt-2">La commande sera enregistrée avant toute ouverture de WhatsApp.</p>
+              <button
+                className="mt-4 w-full rounded-md bg-emerald-800 px-4 py-3 font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:bg-stone-400"
+                disabled={isOrderPending}
+                onClick={submitOrder}
+                type="button"
+              >
+                {isOrderPending ? "Enregistrement de la commande…" : "Enregistrer la commande"}
+              </button>
             </section>
           ) : null}
         </aside>

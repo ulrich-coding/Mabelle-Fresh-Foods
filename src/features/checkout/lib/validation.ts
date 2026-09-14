@@ -3,6 +3,7 @@ import type { CartUnit } from "@/features/cart/types/cart";
 
 import {
   fulfillmentMethods,
+  type CheckoutCartItemInput,
   type CheckoutFormInput,
   type CheckoutValidationFailure,
   type FulfillmentMethod,
@@ -11,6 +12,7 @@ import {
 const usPostalCodePattern = /^\d{5}(?:-\d{4})?$/;
 const usStatePattern = /^[A-Za-z]{2}$/;
 const e164UsPattern = /^\+1\d{10}$/;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type NormalizedCheckoutForm = {
   fullName: string;
@@ -107,6 +109,35 @@ export function validateCheckoutForm(value: unknown): NormalizedCheckoutForm | C
     fulfillmentMethod,
     address: { line1, line2: line2 || null, city, state, postalCode, countryCode: "US" },
   };
+}
+
+export function parseCheckoutCartItems(value: unknown): CheckoutCartItemInput[] | CheckoutValidationFailure {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { success: false, message: "Votre panier est vide.", cartErrors: ["Ajoutez un produit avant de continuer."] };
+  }
+
+  if (value.length > 50) {
+    return { success: false, message: "Votre panier contient trop d’articles pour être vérifié." };
+  }
+
+  const productIds = new Set<string>();
+  const items: CheckoutCartItemInput[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      return { success: false, message: "Le contenu du panier est invalide." };
+    }
+
+    const candidate = item as Partial<CheckoutCartItemInput>;
+    if (typeof candidate.productId !== "string" || !uuidPattern.test(candidate.productId) || productIds.has(candidate.productId)) {
+      return { success: false, message: "Le contenu du panier est invalide." };
+    }
+
+    productIds.add(candidate.productId);
+    items.push({ productId: candidate.productId, quantityMilli: candidate.quantityMilli as number });
+  }
+
+  return items;
 }
 
 export function validateQuantityForProduct(
