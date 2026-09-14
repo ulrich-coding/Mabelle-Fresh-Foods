@@ -1,10 +1,18 @@
 import Link from "next/link";
 
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
+import { getAdminOrderDashboardStats } from "@/features/admin/server/orders";
 import { requireAdmin } from "@/features/admin/server/require-admin";
 
 export default async function AdminPage() {
   await requireAdmin();
+  let orderStats: Awaited<ReturnType<typeof getAdminOrderDashboardStats>> | null = null;
+
+  try {
+    orderStats = await getAdminOrderDashboardStats();
+  } catch {
+    orderStats = null;
+  }
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -22,11 +30,22 @@ export default async function AdminPage() {
             <h2 className="text-lg font-semibold text-stone-900">Catégories</h2>
             <p className="mt-2 text-sm text-stone-600">Organiser le catalogue et gérer leur visibilité.</p>
           </Link>
-          <article className="rounded-lg border border-dashed border-stone-300 bg-stone-100 p-5">
-            <h2 className="text-lg font-semibold text-stone-700">Commandes</h2>
-            <p className="mt-2 text-sm text-stone-600">Bientôt disponible.</p>
-          </article>
+          <Link className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm transition hover:border-stone-400" href="/admin/orders">
+            <h2 className="text-lg font-semibold text-stone-900">Commandes</h2>
+            <p className="mt-2 text-sm text-stone-600">Consulter les demandes et suivre leur préparation.</p>
+          </Link>
         </div>
+
+        {orderStats ? (
+          <section className="mt-8" aria-label="Indicateurs des commandes">
+            <h2 className="text-lg font-semibold text-stone-900">Aperçu des commandes</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <article className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm"><p className="text-sm text-stone-600">Reçues</p><p className="mt-2 text-2xl font-semibold text-stone-950">{orderStats.submitted}</p></article>
+              <article className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm"><p className="text-sm text-stone-600">En préparation</p><p className="mt-2 text-2xl font-semibold text-stone-950">{orderStats.preparing}</p></article>
+              <article className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm"><p className="text-sm text-stone-600">Terminées</p><p className="mt-2 text-2xl font-semibold text-stone-950">{orderStats.completed}</p></article>
+            </div>
+          </section>
+        ) : null}
       </main>
     </div>
   );

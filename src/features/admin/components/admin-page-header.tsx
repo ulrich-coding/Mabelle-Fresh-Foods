@@ -20,12 +20,18 @@ export function AdminPageHeader({ title, description }: AdminPageHeaderProps) {
         </div>
         <AdminSignOutButton />
       </div>
-      <nav className="mx-auto flex w-full max-w-6xl gap-4 px-6 pb-4 text-sm font-medium text-stone-700">
+      <nav className="mx-auto flex w-full max-w-6xl flex-wrap gap-4 px-6 pb-4 text-sm font-medium text-stone-700">
+        <Link className="hover:text-stone-950" href="/admin">
+          Tableau de bord
+        </Link>
         <Link className="hover:text-stone-950" href="/admin/products">
           Produits
         </Link>
         <Link className="hover:text-stone-950" href="/admin/categories">
           Catégories
+        </Link>
+        <Link className="hover:text-stone-950" href="/admin/orders">
+          Commandes
         </Link>
       </nav>
     </header>
